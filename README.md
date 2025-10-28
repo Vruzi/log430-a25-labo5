@@ -251,3 +251,4 @@ Si on change le timeout à plus de 5 seconde on à un page d'erreur. Dans une ar
   - Exigences : Maximum 5 minutes, format .mp4 ou .webm.
   - Veuillez utiliser un outil tel que Handbrake pour compresser la vidéo si elle dépasse 20 Mo.
 - Un rapport en .pdf répondant aux questions présentées dans ce document. Il est obligatoire d'illustrer vos réponses avec du code ou des captures d'écran/terminal.
+
