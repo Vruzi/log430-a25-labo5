@@ -62,6 +62,11 @@ Dans `orders/commands/write_order.py`, la fonction `add_order` effectue la créa
 
 > 💡 **Question 1** : Quelle réponse obtenons-nous à la requête à `POST /payments` ? Illustrez votre réponse avec des captures d'écran/terminal.
 
+On obtient le payment_id
+{
+  payment_id: 3
+}
+
 ### 2. Utilisez le lien de paiement
 - Dans votre Postman, importez la collection Postman qui est dans `docs/collections` à `log430-a25-labo5`
 - Ensuite, importez aussi la collection sur `docs/collections` à `log430-a25-labo5-payment`
@@ -76,7 +81,19 @@ Dans `orders/commands/write_order.py`, la fonction `add_order` effectue la créa
 
 > 💡 **Question 2** : Quel type d'information envoyons-nous dans la requête à `POST payments/process/:id` ? Est-ce que ce serait le même format si on communiquait avec un service SOA, par exemple ? Illustrez votre réponse avec des exemples et captures d'écran/terminal.
 
+{
+    "cardNumber": 9999999999999,
+    "cardCode": 123,
+    "expirationDate": "2030-01-05"
+}
+
 > 💡 **Question 3** : Quel résultat obtenons-nous de la requête à `POST payments/process/:id`?
+
+{
+    "is_paid": true,
+    "order_id": 1,
+    "payment_id": 4
+}
 
 ### 3. Ajoutez un nouveau endpoint à KrakenD
 Ajoutez l'endpoint de création de commandes à `config/krakend.json`. Nous l'utiliserons lors des prochaines activités. Ce code ajoute une [limitation du nombre de requêtes](https://www.krakend.io/docs/endpoints/rate-limit/) à nos endpoints (10 requêtes par minute, par client).
@@ -118,6 +135,34 @@ Si les étapes de l'activité 2 fonctionnent, cela signifie que les paiements so
 
 > 💡 **Question 4** : Quelle méthode avez-vous dû modifier dans `log430-a25-labo05-payment` et qu'avez-vous modifié ? Justifiez avec un extrait de code.
 
+```python
+def process_payment(payment_id, credit_card_data):
+  """ Process payment with given ID, notify store_manager sytem that the order is paid """
+  # S'il s'agissait d'une véritable API de paiement, nous enverrions les données de la carte de crédit à un payment gateway (ex. Stripe, Paypal) pour effectuer le paiement. Cela pourrait se trouver dans un microservice distinct.
+  _process_credit_card_payment(credit_card_data)
+
+  # Si le paiement est réussi, mettre à jour les statut de la commande
+  order_update_data = {
+      "order_id": update_result["order_id"],
+      "is_paid": True
+  }
+  # Ensuite, faire la mise à jour de la commande dans le Store Manager (en utilisant l'order_id)
+  update_result = update_status_to_paid(payment_id)
+  print(f"Updated order {update_result['order_id']} to paid={update_result}")
+  requests.put(
+      'http://api-gateway:8080/store-api/orders',
+      json=order_update_data,
+      headers={'Content-Type': 'application/json'}
+  )
+  result = {
+      "order_id": update_result["order_id"],
+      "payment_id": update_result["payment_id"],
+      "is_paid": update_result["is_paid"]
+  }
+
+  return result
+```
+
 ### 5. Testez le rate limiting avec Locust
 En plus de fonctionner en tant qu'une façade pour nos APIs, nous pouvons aussi utiliser KrakenD pour limiter l'accès à nos APIs et les protéger des attaques DDOS, par exemple. Nous faisons ça avec rate limiting. Créez un nouveau test dans `locustfiles/locustfile.py` spécifiquement pour tester le rate limiting :
 
@@ -128,7 +173,7 @@ En plus de fonctionner en tant qu'une façade pour nos APIs, nous pouvons aussi 
       payload = {
           "user_id": random.randint(1, 3),
           "items": [{"product_id": random.randint(1, 4), "quantity": random.randint(1, 10)}] 
-      }   
+      }
       
       response = self.client.post(
           "/store-api/orders",
@@ -160,6 +205,8 @@ command: -f /mnt/locust/locustfile.py --host=http://api-gateway:8080
 Lancez le test et observez les réponses HTTP 503 (Service Unavailable).
 
 > 💡 **Question 5** : À partir de combien de requêtes par minute observez-vous les erreurs 503 ? Justifiez avec des captures d'écran de Locust.
+
+À partir de 2.5 RPS on observe les premier signe d'erreur 503.
 
 ### 6. Créez un endpoint de test pour le timeout
 Dans `store_manager.py`, ajoutez un endpoint de test qui simule une réponse lente :
@@ -194,6 +241,8 @@ Testez différents délais en utilisant votre navigateur :
 - `http://localhost:8080/store-api/test/slow/10` 
 
 > 💡 **Question 5** : Que se passe-t-il dans le navigateur quand vous faites une requête avec un délai supérieur au timeout configuré (5 secondes) ? Quelle est l'importance du timeout dans une architecture de microservices ? Justifiez votre réponse avec des exemples pratiques.
+
+Si on change le timeout à plus de 5 seconde on à un page d'erreur. Dans une architecture de microservices, avoir un timeout permets d'assurer que les appelles sont fait avec une certaine assurance qualité. Aussi pour évité les panne de services on rajoute un timeout.
 
 ## 📦 Livrables
 
